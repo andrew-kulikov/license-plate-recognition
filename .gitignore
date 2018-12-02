@@ -104,3 +104,6 @@ venv.bak/
 .mypy_cache/
 
 .idea/
+src/token.txt
+*.jpg
+*.png

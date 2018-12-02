@@ -1,76 +1,54 @@
-import requests
-import datetime
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+import Recognitor
+import io
+import cv2
 
 
-class BotHandler:
+with open('token.txt', 'r') as f:
+    token = f.readline()
 
-    def __init__(self, token):
-        self.token = token
-        self.api_url = "https://api.telegram.org/bot{}/".format(token)
-
-    def get_updates(self, offset=None, timeout=30):
-        method = 'getUpdates'
-        params = {'timeout': timeout, 'offset': offset}
-        resp = requests.get(self.api_url + method, params)
-        result_json = resp.json()['result']
-        return result_json
-
-    def send_message(self, chat_id, text):
-        params = {'chat_id': chat_id, 'text': text}
-        method = 'sendMessage'
-        resp = requests.post(self.api_url + method, params)
-        return resp
-
-    def get_last_update(self):
-        get_result = self.get_updates()
-
-        if len(get_result) > 0:
-            last_update = get_result[-1]
-        else:
-            last_update = get_result[len(get_result)]
-
-        return last_update
+updater = Updater(token=token)
+dispatcher = updater.dispatcher
 
 
-token = '761646801:AAE582R1iZB1XznjBIE_jaLtBECuS0H418M'
-
-greet_bot = BotHandler(token)
-greetings = ('здравствуй', 'привет', 'ку', 'здорово')
-now = datetime.datetime.now()
+# Обработка команд
+def start_command(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text='Привет, давай пообщаемся?')
 
 
-def main():
-    new_offset = None
-    today = now.day
-    hour = now.hour
-
-    while True:
-        greet_bot.get_updates(new_offset)
-
-        last_update = greet_bot.get_last_update()
-
-        last_update_id = last_update['update_id']
-        last_chat_text = last_update['message']['text']
-        last_chat_id = last_update['message']['chat']['id']
-        last_chat_name = last_update['message']['chat']['first_name']
-
-        if last_chat_text.lower() in greetings and today == now.day and 6 <= hour < 12:
-            greet_bot.send_message(last_chat_id, 'Доброе утро, {}'.format(last_chat_name))
-            today += 1
-
-        elif last_chat_text.lower() in greetings and today == now.day and 12 <= hour < 17:
-            greet_bot.send_message(last_chat_id, 'Добрый день, {}'.format(last_chat_name))
-            today += 1
-
-        elif last_chat_text.lower() in greetings and today == now.day and 17 <= hour < 23:
-            greet_bot.send_message(last_chat_id, 'Добрый вечер, {}'.format(last_chat_name))
-            today += 1
-
-        new_offset = last_update_id + 1
+def text_message(bot, update):
+    response = 'Получил Ваше сообщение: ' + update.message.text
+    bot.send_message(chat_id=update.message.chat_id, text=response)
 
 
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        exit()
+def get_closest(photos, desired_size):
+    def diff(p):
+        return p.width - desired_size[0], p.height - desired_size[1]
+
+    def norm(t):
+        return abs(t[0] + t[1] * 1j)
+
+    return min(photos, key=lambda p: norm(diff(p)))
+
+
+def image_message(bot, update):
+    photo = update.message.photo[-1].file_id
+    photo = bot.get_file(photo)
+    photo.download('{}.jpg'.format(update.message.photo[-1].file_id))
+    result_photo = Recognitor.recognize('{}.jpg'.format(update.message.photo[-1].file_id))
+    cv2.imwrite("result.png", result_photo)
+    bot.send_photo(chat_id=update.message.chat_id, photo=open('result.png', 'rb'))
+
+
+# Хендлеры
+start_command_handler = CommandHandler('start', start_command)
+text_message_handler = MessageHandler(Filters.text, text_message)
+photo_message_handler = MessageHandler(Filters.photo, image_message)
+# Добавляем хендлеры в диспетчер
+dispatcher.add_handler(start_command_handler)
+dispatcher.add_handler(text_message_handler)
+dispatcher.add_handler(photo_message_handler)
+# Начинаем поиск обновлений
+updater.start_polling(clean=True)
+# Останавливаем бота, если были нажаты Ctrl + C
+updater.idle()
