@@ -1,32 +1,24 @@
-# Preprocess.py
-
 import cv2
 import numpy as np
-import math
 
-# module level variables ##########################################################################
 GAUSSIAN_SMOOTH_FILTER_SIZE = (5, 5)
 ADAPTIVE_THRESH_BLOCK_SIZE = 19
-ADAPTIVE_THRESH_WEIGHT = 9
+ADAPTIVE_THRESH_WEIGHT = 7
 
-###################################################################################################
-def preprocess(imgOriginal):
-    imgGrayscale = extractValue(imgOriginal)
 
-    imgMaxContrastGrayscale = maximizeContrast(imgGrayscale)
+def preprocess(img_original):
+    img_grayscale = extractValue(img_original)
 
-    height, width = imgGrayscale.shape
+    img_max_contrast_grayscale = maximizeContrast(img_grayscale)
 
-    imgBlurred = np.zeros((height, width, 1), np.uint8)
+    img_blurred = cv2.GaussianBlur(img_max_contrast_grayscale, GAUSSIAN_SMOOTH_FILTER_SIZE, 0)
 
-    imgBlurred = cv2.GaussianBlur(imgMaxContrastGrayscale, GAUSSIAN_SMOOTH_FILTER_SIZE, 0)
+    img_thresh = cv2.adaptiveThreshold(img_blurred, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,
+                                      ADAPTIVE_THRESH_BLOCK_SIZE, ADAPTIVE_THRESH_WEIGHT)
 
-    imgThresh = cv2.adaptiveThreshold(imgBlurred, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, ADAPTIVE_THRESH_BLOCK_SIZE, ADAPTIVE_THRESH_WEIGHT)
+    return img_grayscale, img_thresh
 
-    return imgGrayscale, imgThresh
-# end function
 
-###################################################################################################
 def extractValue(imgOriginal):
     height, width, numChannels = imgOriginal.shape
 
@@ -37,11 +29,9 @@ def extractValue(imgOriginal):
     imgHue, imgSaturation, imgValue = cv2.split(imgHSV)
 
     return imgValue
-# end function
 
-###################################################################################################
+
 def maximizeContrast(imgGrayscale):
-
     height, width = imgGrayscale.shape
 
     imgTopHat = np.zeros((height, width, 1), np.uint8)
@@ -56,14 +46,3 @@ def maximizeContrast(imgGrayscale):
     imgGrayscalePlusTopHatMinusBlackHat = cv2.subtract(imgGrayscalePlusTopHat, imgBlackHat)
 
     return imgGrayscalePlusTopHatMinusBlackHat
-# end function
-
-
-
-
-
-
-
-
-
-

@@ -4,7 +4,6 @@ import os
 
 import cv2
 
-# module level variables ##########################################################################
 SCALAR_BLACK = (0.0, 0.0, 0.0)
 SCALAR_WHITE = (255.0, 255.0, 255.0)
 SCALAR_YELLOW = (0.0, 255.0, 255.0)
@@ -19,20 +18,20 @@ def recognize(path):
 
     if not train_success:  # if KNN training was not successful
         print("\nerror: KNN training was not successful\n")
-        return
+        return None, None
 
     original_scene = cv2.imread(path)
 
     if original_scene is None:
         print("\nerror: image not read from file \n\n")  # print error message to std out
         os.system("pause")  # pause so user can see error message
-        return
+        return None, None
 
     possible_plates = DetectPlates.detectPlatesInScene(original_scene)  # detect plates
 
     possible_plates = DetectChars.detectCharsInPlates(possible_plates)  # detect chars in plates
 
-    #cv2.imshow("imgOriginalScene", original_scene)
+    # cv2.imshow("imgOriginalScene", original_scene)
 
     if len(possible_plates) == 0:
         print("\nno license plates were detected\n")
@@ -46,27 +45,35 @@ def recognize(path):
         # descending order) is the actual plate
         plate = possible_plates[0]
 
-        #cv2.imshow("imgPlate", plate.imgPlate)  # show crop of plate and threshold of plate
-        #cv2.imshow("imgThresh", plate.imgThresh)
+        # cv2.imshow("imgPlate", plate.imgPlate)  # show crop of plate and threshold of plate
+        cv2.imwrite("imgThresh.png", plate.imgThresh)
 
         if len(plate.strChars) == 0:  # if no chars were found in the plate
             print("\nno characters were detected\n\n")  # show message
-            return
+            cv2.waitKey(0)
+            return None, None
 
         highlight_plate(original_scene, plate)  # draw red rectangle around plate
 
         print("\nlicense plate read from image = " + plate.strChars + "\n")  # write license plate text to std out
         print("----------------------------------------")
 
+        plate.strChars = process_number(plate.strChars)
         write_chars(original_scene, plate)  # write license plate text on the image
 
-        #cv2.imshow("imgOriginalScene", original_scene)  # re-show scene image
+        # cv2.imshow("imgOriginalScene", original_scene)  # re-show scene image
 
         cv2.imwrite("imgOriginalScene.png", original_scene)  # write image out to file
-        return original_scene
+        return original_scene, plate.strChars
 
     cv2.waitKey(0)
-    return
+    return None, None
+
+
+def process_number(number):
+    if len(number) == 7:
+        return number[:-1] + '-' + number[-1]
+    return number
 
 
 def highlight_plate(scene, plate):
@@ -88,7 +95,7 @@ def write_chars(scene, plate):
 
     text_size, baseline = cv2.getTextSize(plate.strChars, font_face, font_scale, font_thickness)
 
-    # unpack roatated rect into center point, width and height, and angle
+    # unpack rotated rect into center point, width and height, and angle
     ((plate_center_x, plate_center_y), (_, _),
      fltCorrectionAngleInDeg) = plate.rrLocationOfPlateInScene
 
